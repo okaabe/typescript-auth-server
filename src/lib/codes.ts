@@ -1,0 +1,7 @@
+export default {
+  CONFLICT: 409,
+  BAD_REQUEST: 400,
+  CREATED: 201,
+  UNAUTHORIZED: 401,
+  OK: 200,
+}
