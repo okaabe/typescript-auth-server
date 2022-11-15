@@ -28,13 +28,13 @@ const encode = (
   algorithm: JwtRaw.TAlgorithm = "HS256"
 ): EncodeResult => {
   const now = Date.now()
-  const expiresAt = Date.now() + 60 ** 3 * 10 //3h
+  const expiresAt = Date.now() + 5 * 60 * 60 * 1000 //3h
 
   const encoded = JwtRaw.encode(
     {
       ...partial,
       issuedAt: now,
-      expiresAt: now,
+      expiresAt,
     },
     secret,
     algorithm

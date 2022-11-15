@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express"
 
 import * as JWT from "../usecase/jwt"
 import codes from "../../../lib/codes"
+import { logger } from "../../../logger"
 
 export const REQUEST_HEADER = "authorization"
 export const RESPONSE_HEADER = "renewed-authorization"
@@ -36,6 +37,7 @@ export const middlware = (req: Request, res: Response, next: NextFunction) => {
     }
 
     if (expirationStatus === "renew") {
+      logger.debug(`Expiration Status (JWT): ${expirationStatus}`)
       const renewedToken = JWT.encode({
         name: session.decodeResult.name,
         email: session.decodeResult.email,
