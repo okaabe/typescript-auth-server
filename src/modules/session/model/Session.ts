@@ -5,6 +5,6 @@ export type Session = {
 
   createdAt: Date
 
-  issuedAt: Date
-  expiresAt: Date
+  issuedAt: number
+  expiresAt: number
 }

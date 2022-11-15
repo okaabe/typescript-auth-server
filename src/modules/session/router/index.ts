@@ -7,7 +7,16 @@ import { ValidationError } from "yup"
 import { logger } from "../../../logger"
 import { inspect } from "util"
 
+import * as bearerMiddlware from "../middlware/bearer"
+
 const router = Router()
+
+router.get("/rewoke", bearerMiddlware.middlware, (req, res) => {
+  return res.status(httpCodes.OK).json({
+    ok: true,
+    data: res.locals.session,
+  })
+})
 
 router.post("/signin", async (req, res) => {
   try {

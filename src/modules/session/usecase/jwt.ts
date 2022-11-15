@@ -2,7 +2,9 @@ import * as JwtRaw from "jwt-simple"
 import { DecodeResult } from "../model/DecodeResult"
 
 import { EncodeResult } from "../model/EncodeResult"
+import { ExpirationStatus } from "../model/ExpirationStatus"
 import { PartialSession } from "../model/PartialSession"
+import { Session } from "../model/Session"
 
 /**
  * encode
@@ -72,11 +74,29 @@ const decode = (
           return { type: "invalid-token" }
         }
 
+        if (!err.message.indexOf("Unexpected end of JSON input")) {
+          return { type: "invalid-token" }
+        }
+
         throw err
     }
   }
 }
 
-const checkExpiration = () => {}
+const checkExpiration = (session: Session): ExpirationStatus => {
+  const now = Date.now()
+
+  if (session.expiresAt > now) {
+    return "active"
+  }
+
+  const renewTime = 3 * 60 * 60 * 1000
+
+  if (now + renewTime > now) {
+    return "renew"
+  }
+
+  return "expired"
+}
 
 export { encode, decode, checkExpiration }
