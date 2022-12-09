@@ -1,4 +1,8 @@
-import prisma from "../../../lib/prisma"
+import prisma, {
+  PrismaKnownRequestErrorCode,
+  isPrismaClientKnownRequestError,
+} from "../../../lib/prisma"
+
 import * as bcrypt from "bcrypt"
 import * as JWT from "./jwt"
 
@@ -14,35 +18,37 @@ import { SignInResult } from "../model/SignInResult"
 export const create = async (
   data: Omit<User, "createdAt" | "updatedAt" | "id">
 ): Promise<SignUpResult> => {
-  const isEmailTaken = await prisma.user.findFirst({
-    where: {
-      email: data.email,
-    },
-  })
+  try {
+    const encryptedPassword = await bcrypt.hash(data.password, 10)
 
-  if (isEmailTaken) {
-    return { type: "email-taken" }
-  }
+    const user = await prisma.user.create({
+      data: {
+        ...data,
+        password: encryptedPassword,
+      },
+    })
 
-  const encryptedPassword = await bcrypt.hash(data.password, 10)
+    const token = JWT.encode({
+      email: user.email,
+      name: user.name,
+      surname: user.surname,
+      createdAt: user.createdAt,
+    })
 
-  const user = await prisma.user.create({
-    data: {
-      ...data,
-      password: encryptedPassword,
-    },
-  })
+    return {
+      type: "ok",
+      token,
+    }
+  } catch (err: any) {
+    if (
+      isPrismaClientKnownRequestError(err) &&
+      err.code === PrismaKnownRequestErrorCode.UniqueConstraintFailed &&
+      err.meta.target.includes("email")
+    ) {
+      return { type: "email-taken" }
+    }
 
-  const token = JWT.encode({
-    email: user.email,
-    name: user.name,
-    surname: user.surname,
-    createdAt: user.createdAt,
-  })
-
-  return {
-    type: "ok",
-    token,
+    throw err
   }
 }
 
@@ -50,30 +56,27 @@ export const authenticate = async (data: {
   email: string
   password: string
 }): Promise<SignInResult> => {
-  const isEmailValid = await prisma.user.findFirst({
+  const user = await prisma.user.findFirst({
     where: {
       email: data.email,
     },
   })
 
-  if (!isEmailValid) {
+  if (!user) {
     return { type: "invalid-email" }
   }
 
-  const isPasswordValid = await bcrypt.compare(
-    data.password,
-    isEmailValid.password
-  )
+  const isPasswordValid = await bcrypt.compare(data.password, user.password)
 
   if (!isPasswordValid) {
     return { type: "wrong-password" }
   }
 
   const encoded = JWT.encode({
-    email: isEmailValid.email,
-    createdAt: isEmailValid.createdAt,
-    surname: isEmailValid.surname,
-    name: isEmailValid.name,
+    email: user.email,
+    createdAt: user.createdAt,
+    surname: user.surname,
+    name: user.name,
   })
 
   return {

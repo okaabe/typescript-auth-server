@@ -6,3 +6,4 @@ coverage/
 junit.xml
 yarn-error.log
 tsconfig.tsbuildinfo
+prisma/migrations
