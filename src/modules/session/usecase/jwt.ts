@@ -57,7 +57,7 @@ const decode = (
 
     return {
       type: "ok",
-      decodeResult: decoded,
+      session: decoded,
     }
   } catch (err: any) {
     switch (err.message) {

@@ -9,6 +9,27 @@ import * as JWT from "./jwt"
 import { User } from "../model/User"
 import { SignUpResult } from "../model/SignUpResult"
 import { SignInResult } from "../model/SignInResult"
+import { RewokeResult } from "../model/RewokeResult"
+
+export const rewokeSession = async (email: string): Promise<RewokeResult> => {
+  const user = await prisma.user.findFirst({
+    where: {
+      email,
+    },
+  })
+
+  return user
+    ? {
+        type: "found",
+        partialSession: {
+          name: user.name,
+          surname: user.surname,
+          email: user.email,
+          createdAt: user.createdAt,
+        },
+      }
+    : { type: "not-found" }
+}
 
 /**
  *  password wont be stored uncrypted

@@ -1,68 +1,92 @@
 import { Request, Response, NextFunction } from "express"
 
 import * as JWT from "../usecase/jwt"
-import codes from "../../../lib/codes"
+import * as session from "../usecase/session"
+
+import httpStatusCodes from "../../../lib/codes"
 import { logger } from "../../../logger"
 
-export const REQUEST_HEADER = "authorization"
-export const RESPONSE_HEADER = "renewed-authorization"
+export const REQUEST_AUTH_HEADER = "authorization"
+export const RESPONSE_AUTH_HEADER = "x-renew-authorization"
 
-export const middlware = (req: Request, res: Response, next: NextFunction) => {
-  const authorization = req.headers[REQUEST_HEADER]
+export const middlware = async (
+  request: Request,
+  response: Response,
+  next: NextFunction
+) => {
+  const authorization = request.headers[REQUEST_AUTH_HEADER]
 
   if (!authorization) {
-    return res.status(codes.BAD_REQUEST).json({
+    return response.status(httpStatusCodes.BAD_REQUEST).json({
       ok: false,
       message: "bad-request",
     })
   }
 
   try {
-    const session = JWT.decode(authorization)
+    const decodedJWT = JWT.decode(authorization)
 
-    if (session.type !== "ok") {
-      return res.status(codes.UNAUTHORIZED).json({
+    if (decodedJWT.type !== "ok") {
+      logger.error(
+        `Bearer middlware rejected the request because: ${decodedJWT.type}`
+      )
+      return response.status(httpStatusCodes.UNAUTHORIZED).json({
         ok: false,
-        message: "unauthorized",
+        message: `${decodedJWT.type}`,
       })
     }
 
-    const expirationStatus = JWT.checkExpiration(session.decodeResult)
+    const tokenExpiration = JWT.checkExpiration(decodedJWT.session)
 
-    if (expirationStatus === "expired") {
-      return res.status(codes.UNAUTHORIZED).json({
+    if (tokenExpiration === "expired") {
+      return response.status(httpStatusCodes.UNAUTHORIZED).json({
         ok: false,
-        message: "unauthorized",
+        message: "The token is expired",
       })
     }
 
-    if (expirationStatus === "renew") {
-      logger.debug(`Expiration Status (JWT): ${expirationStatus}`)
+    /**
+     * Rewoke session (also checking if the session stored in JWT is still valid)
+     */
+    const rewoked = await session.rewokeSession(decodedJWT.session.email)
+
+    if (rewoked.type !== "found") {
+      return response.status(httpStatusCodes.UNAUTHORIZED).json({
+        ok: false,
+        message: "Unauthorized! User doesn't exist anymore in our database",
+      })
+    }
+
+    if (tokenExpiration === "renew") {
       const renewedToken = JWT.encode({
-        name: session.decodeResult.name,
-        email: session.decodeResult.email,
-        surname: session.decodeResult.surname,
-        createdAt: session.decodeResult.createdAt,
+        name: rewoked.partialSession.name,
+        email: rewoked.partialSession.email,
+        surname: rewoked.partialSession.surname,
+        createdAt: rewoked.partialSession.createdAt,
       })
 
-      res.setHeader(RESPONSE_HEADER, renewedToken.token)
+      response.setHeader(RESPONSE_AUTH_HEADER, renewedToken.token)
 
-      session.decodeResult = {
-        ...session.decodeResult,
+      response.locals.session = {
+        ...rewoked.partialSession,
         expiresAt: renewedToken.expiresAt,
         issuedAt: renewedToken.issuedAt,
       }
+
+      return next()
     }
 
-    res.locals.session = session.decodeResult
+    response.locals.session = {
+      ...rewoked.partialSession,
+      expiresAt: decodedJWT.session.expiresAt,
+      issuedAt: decodedJWT.session.issuedAt,
+    }
 
-    next()
+    return next()
   } catch (err) {
-    return res.status(codes.INTERNAL_SERVER_ERROR).json({
+    return response.status(httpStatusCodes.INTERNAL_SERVER_ERROR).json({
       ok: false,
       message: "internal-server-error",
     })
   }
-
-  next()
 }
