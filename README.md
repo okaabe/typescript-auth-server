@@ -8,7 +8,6 @@
 Simple Authentication server, its purpose is to start to learn typescript, prisma, axios and a little bit about JWT and web authentication
 
 ### User guide
-Before you clone this repository, you need to setup the [auth service](https://github.com/tosuki/typescript-auth-server)
 
 ```
 - git clone https://github.com/tosuki/typescript-auth-server ./server
